@@ -21,6 +21,7 @@
 
 	AudioUnit inputAU;
 	AudioUnit outputAU;
+    AudioUnit EQAU;
 }
 
 + (AUSimplePlayer *)sharedPlayer
@@ -40,12 +41,16 @@
 		return;
 	}
 
+    OSStatus status;
+    
 	// Open the input local audio file
-	AudioFileOpenURL((__bridge CFURLRef)fileURL, kAudioFileReadPermission, 0, &inputFile);
+	status = AudioFileOpenURL((__bridge CFURLRef)fileURL, kAudioFileReadPermission, 0, &inputFile);
+    NSAssert(status == noErr, @"Audio file open error. status:%d", (int)status);
 
 	// Get the audio data format from the file
 	UInt32 propSize = sizeof(inputFormat);
-	AudioFileGetProperty(inputFile, kAudioFilePropertyDataFormat, &propSize, &inputFormat);
+	status = AudioFileGetProperty(inputFile, kAudioFilePropertyDataFormat, &propSize, &inputFormat);
+    NSAssert(status == noErr, @"Get audio file data format error. status:%d", (int)status);
 
 	// Build a basic file player->speaker graph
 	[self createAUGraphForLocalAudio];
@@ -54,7 +59,8 @@
 	[self configureFilePlayerNode];
 
 	// Starting playing
-	AUGraphStart(graph);
+	status = AUGraphStart(graph);
+    NSAssert(status == noErr, @"AUGraph start error. status:%d", (int)status);
 
 	[_delegate simplePlayerDidStartPlaying:self];
 }
@@ -93,46 +99,78 @@
 
 - (void)createAUGraphForLocalAudio
 {
+    OSStatus status;
+    
 	// Create the AUGraph
-	NewAUGraph(&graph);
+    status = NewAUGraph(&graph);
+    NSAssert(status == noErr, @"New AUGraph error. status:%d", (int)status);
 
 	// Create Nodes
-	// Create Output AUGraph Node
-	AudioComponentDescription outputDescription = {0};
-	outputDescription.componentType = kAudioUnitType_Output;
-	// Note : On iOS, we need to use kAudioUnitSubType_RemoteIO. On Mac, we can use kAudioUnitSubType_DefaultOutput.
-	outputDescription.componentSubType = kAudioUnitSubType_RemoteIO;
-	outputDescription.componentManufacturer = kAudioUnitManufacturer_Apple;
-	AUNode outputNode;
-	AUGraphAddNode(graph, &outputDescription, &outputNode);
-
-	// Create Generator AUGraph Node
-	AudioComponentDescription inputDescription = {0};
-	inputDescription.componentType = kAudioUnitType_Generator;
-	inputDescription.componentSubType = kAudioUnitSubType_AudioFilePlayer;
-	inputDescription.componentManufacturer = kAudioUnitManufacturer_Apple;
-	AUNode inputNode;
-	AUGraphAddNode(graph, &inputDescription, &inputNode);
+    AUNode outputNode;
+    AUNode inputNode;
+    AUNode EQNode;
+    {
+        // Create Output AUGraph Node
+        AudioComponentDescription outputDescription = {0};
+        outputDescription.componentType = kAudioUnitType_Output;
+        // Note : On iOS, we need to use kAudioUnitSubType_RemoteIO. On Mac, we can use kAudioUnitSubType_DefaultOutput.
+        outputDescription.componentSubType = kAudioUnitSubType_RemoteIO;
+        outputDescription.componentManufacturer = kAudioUnitManufacturer_Apple;
+        status = AUGraphAddNode(graph, &outputDescription, &outputNode);
+        NSAssert(status == noErr, @"AUGraph add output node error. status:%d", (int)status);
+        
+        // Create Generator AUGraph Node
+        AudioComponentDescription inputDescription = {0};
+        inputDescription.componentType = kAudioUnitType_Generator;
+        inputDescription.componentSubType = kAudioUnitSubType_AudioFilePlayer;
+        inputDescription.componentManufacturer = kAudioUnitManufacturer_Apple;
+        status = AUGraphAddNode(graph, &inputDescription, &inputNode);
+        NSAssert(status == noErr, @"AUGraph add input node error. status:%d", (int)status);
+        
+        // Create EQ AUGraph Node
+        AudioComponentDescription effectEQDescription = {0};
+        effectEQDescription.componentType = kAudioUnitType_Effect;
+        effectEQDescription.componentSubType = kAudioUnitSubType_AUiPodEQ;
+        effectEQDescription.componentManufacturer = kAudioUnitManufacturer_Apple;
+        status = AUGraphAddNode(graph, &effectEQDescription, &EQNode);
+        NSAssert(status == noErr, @"AUGraph add EQ node error. status:%d", (int)status);
+    }
 
 	// Open the graph
-	AUGraphOpen(graph);
+	status = AUGraphOpen(graph);
+    NSAssert(status == noErr, @"AUGraph open error. status:%d", (int)status);
 
 	// Get audio unit if we need
-	AUGraphNodeInfo(graph, inputNode, NULL, &inputAU);
-	AUGraphNodeInfo(graph, outputNode, NULL, &outputAU);
+    {
+        status = AUGraphNodeInfo(graph, inputNode, NULL, &inputAU);
+        NSAssert(status == noErr, @"Get input AU error. status:%d", (int)status);
+        status = AUGraphNodeInfo(graph, outputNode, NULL, &outputAU);
+        NSAssert(status == noErr, @"Get output AU error. status:%d", (int)status);
+        status = AUGraphNodeInfo(graph, EQNode, NULL, &EQAU);
+        NSAssert(status == noErr, @"Get EQ AU error. status:%d", (int)status);
+    }
 
 	// Connect Nodes
-	AUGraphConnectNodeInput(graph, inputNode, 0, outputNode, 0);
+    {
+        status = AUGraphConnectNodeInput(graph, inputNode, 0, EQNode, 0);
+        NSAssert(status == noErr, @"AUGraph connect node error. status:%d", (int)status);
+        status = AUGraphConnectNodeInput(graph, EQNode, 0, outputNode, 0);
+        NSAssert(status == noErr, @"AUGraph connect node error. status:%d", (int)status);
+    }
 
 	// Initialize the AUGraph
-	AUGraphInitialize(graph);
+	status = AUGraphInitialize(graph);
+    NSAssert(status == noErr, @"AUGraph initialize error. status:%d", (int)status);
 }
 
 - (void)configureFilePlayerNode
 {
+    OSStatus status;
+    
 	// Scheduling an audio file (AudioFileID) with the AUFilePlayer (input node)
 	// Tell the file player (input node) to load the audio file we want to play
-	AudioUnitSetProperty(inputAU, kAudioUnitProperty_ScheduledFileIDs, kAudioUnitScope_Global, 0, &inputFile, sizeof(inputFile));
+	status = AudioUnitSetProperty(inputAU, kAudioUnitProperty_ScheduledFileIDs, kAudioUnitScope_Global, 0, &inputFile, sizeof(inputFile));
+    NSAssert(status == noErr, @"AU set ScheduledFileIDs error. status:%d", (int)status);
 
 	// Setting a ScheduledAudioFileRegion for the AUFilePlayer
 	UInt64 nPackets;
@@ -145,7 +183,8 @@
 	region.mStartFrame = 0;
 	region.mFramesToPlay = (UInt32)(nPackets * inputFormat.mFramesPerPacket);
 	region.mCompletionProc = NULL;
-	AudioUnitSetProperty(inputAU, kAudioUnitProperty_ScheduledFileRegion, kAudioUnitScope_Global, 0, &region, sizeof(region));
+	status = AudioUnitSetProperty(inputAU, kAudioUnitProperty_ScheduledFileRegion, kAudioUnitScope_Global, 0, &region, sizeof(region));
+    NSAssert(status == noErr, @"AU set ScheduledFileRegion error. status:%d", (int)status);
 
 	// Setting the scheduled start time for AUFilePlayer
 	// Tell the file player when to start playing
@@ -153,7 +192,8 @@
 	memset(&startTime, 0, sizeof(startTime));
 	startTime.mFlags = kAudioTimeStampSampleTimeValid;
 	startTime.mSampleTime = 0;
-	AudioUnitSetProperty(inputAU, kAudioUnitProperty_ScheduleStartTimeStamp, kAudioUnitScope_Global, 0, &startTime, sizeof(startTime));
+	status = AudioUnitSetProperty(inputAU, kAudioUnitProperty_ScheduleStartTimeStamp, kAudioUnitScope_Global, 0, &startTime, sizeof(startTime));
+    NSAssert(status == noErr, @"AU set ScheduleStartTimeStamp error. status:%d", (int)status);
 
 	// Calculating file playback time in seconds
 	// (total frames / sample frames per second) = total length
