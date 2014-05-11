@@ -6,7 +6,6 @@
 //
 
 #import "AUSimplePlayer.h"
-#import <AudioToolbox/AudioToolbox.h>
 
 @interface AUSimplePlayer (LocalAudio)
 - (void)createAUGraphForLocalAudio;
@@ -22,6 +21,18 @@
 	AudioUnit inputAU;
 	AudioUnit outputAU;
     AudioUnit EQAU;
+    AudioUnit converterAU;
+    
+    CFArrayRef EQPresetsArray;
+    AUPreset currentEQPreset;
+}
+
+- (void)dealloc
+{
+    AUGraphStop(graph);
+    AUGraphUninitialize(graph);
+    AUGraphClose(graph);
+    AudioFileClose(inputFile);
 }
 
 + (AUSimplePlayer *)sharedPlayer
@@ -57,6 +68,14 @@
 
 	// Configure the file player
 	[self configureFilePlayerNode];
+    
+    // Get EQ Presets Array
+    UInt32 size = sizeof(EQPresetsArray);
+    status = AudioUnitGetProperty(EQAU, kAudioUnitProperty_FactoryPresets, kAudioUnitScope_Global, 0, &EQPresetsArray, &size);
+    NSAssert(status == noErr, @"Get EQ Presets Array error. status:%d", (int)status);
+    
+    // Reset EQ
+    [self setEQPreset:0];
 
 	// Starting playing
 	status = AUGraphStart(graph);
@@ -93,12 +112,25 @@
 	return isPlaying;
 }
 
+- (void)setEQPreset:(NSInteger)inValue
+{
+    AUPreset *aPreset = (AUPreset *)CFArrayGetValueAtIndex(EQPresetsArray, inValue);
+	OSStatus status = AudioUnitSetProperty(EQAU, kAudioUnitProperty_PresentPreset, kAudioUnitScope_Global, 0, aPreset, sizeof(AUPreset));
+    NSAssert(status == noErr, @"selectEQPreset error. status:%d", (int)status);
+    
+    currentEQPreset = *aPreset;
+}
+
+@synthesize currentEQPreset;
+@synthesize EQPresetsArray;
 @end
 
 @implementation AUSimplePlayer (LocalAudio)
 
 - (void)createAUGraphForLocalAudio
 {
+    // AUGraph : Input node -> Converter node -> EQ node -> Output node
+    
     OSStatus status;
     
 	// Create the AUGraph
@@ -109,6 +141,7 @@
     AUNode outputNode;
     AUNode inputNode;
     AUNode EQNode;
+    AUNode converterNode;
     {
         // Create Output AUGraph Node
         AudioComponentDescription outputDescription = {0};
@@ -134,6 +167,16 @@
         effectEQDescription.componentManufacturer = kAudioUnitManufacturer_Apple;
         status = AUGraphAddNode(graph, &effectEQDescription, &EQNode);
         NSAssert(status == noErr, @"AUGraph add EQ node error. status:%d", (int)status);
+        
+        // Create Converter AUGraph Node
+        // Fix OSStatus error : -10868 (kAudioUnitErr_FormatNotSupported)
+        // See stackoverflow : http://stackoverflow.com/questions/10478565/augraphinitialize-an-error-code-10868-when-adding-kaudiounitsubtype-reverb2-to
+        AudioComponentDescription converterDescription = {0};
+        converterDescription.componentType = kAudioUnitType_FormatConverter;
+        converterDescription.componentSubType = kAudioUnitSubType_AUConverter;
+        converterDescription.componentManufacturer = kAudioUnitManufacturer_Apple;
+        status = AUGraphAddNode(graph, &converterDescription, &converterNode);
+        NSAssert(status == noErr, @"AUGraph add converter node error. status:%d", (int)status);
     }
 
 	// Open the graph
@@ -148,11 +191,15 @@
         NSAssert(status == noErr, @"Get output AU error. status:%d", (int)status);
         status = AUGraphNodeInfo(graph, EQNode, NULL, &EQAU);
         NSAssert(status == noErr, @"Get EQ AU error. status:%d", (int)status);
+        status = AUGraphNodeInfo(graph, converterNode, NULL, &converterAU);
+        NSAssert(status == noErr, @"Get converter AU error. status:%d", (int)status);
     }
 
 	// Connect Nodes
     {
-        status = AUGraphConnectNodeInput(graph, inputNode, 0, EQNode, 0);
+        status = AUGraphConnectNodeInput(graph, inputNode, 0, converterNode, 0);
+        NSAssert(status == noErr, @"AUGraph connect node error. status:%d", (int)status);
+        status = AUGraphConnectNodeInput(graph, converterNode, 0, EQNode, 0);
         NSAssert(status == noErr, @"AUGraph connect node error. status:%d", (int)status);
         status = AUGraphConnectNodeInput(graph, EQNode, 0, outputNode, 0);
         NSAssert(status == noErr, @"AUGraph connect node error. status:%d", (int)status);

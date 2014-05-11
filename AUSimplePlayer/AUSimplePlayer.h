@@ -5,6 +5,8 @@
 //  Created by Abe on 14/5/9.
 //
 
+#import <AudioToolbox/AudioToolbox.h>
+
 @class AUSimplePlayer;
 
 @protocol AUSimplePlayerDelegate <NSObject>
@@ -25,6 +27,9 @@
 - (void)stop;
 
 - (BOOL)isPlaying;
+- (void)setEQPreset:(NSInteger)inValue;
 
 @property (weak, nonatomic) id<AUSimplePlayerDelegate> delegate;
+@property (readonly, nonatomic) CFArrayRef EQPresetsArray;
+@property (readonly, nonatomic) AUPreset currentEQPreset;
 @end

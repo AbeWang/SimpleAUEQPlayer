@@ -23,6 +23,7 @@
 		3035829E191CAEFB00BBD933 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 3035829C191CAEFB00BBD933 /* InfoPlist.strings */; };
 		303582A0191CAEFB00BBD933 /* AUSimplePlayerTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 3035829F191CAEFB00BBD933 /* AUSimplePlayerTests.m */; };
 		303582AB191CB08300BBD933 /* AUSimplePlayer.m in Sources */ = {isa = PBXBuildFile; fileRef = 303582AA191CB08300BBD933 /* AUSimplePlayer.m */; };
+		30E3B3E7191FDEBB008B2BF8 /* KKEQListViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 30E3B3E6191FDEBB008B2BF8 /* KKEQListViewController.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -58,6 +59,8 @@
 		3035829F191CAEFB00BBD933 /* AUSimplePlayerTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AUSimplePlayerTests.m; sourceTree = "<group>"; };
 		303582A9191CB08300BBD933 /* AUSimplePlayer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AUSimplePlayer.h; sourceTree = "<group>"; };
 		303582AA191CB08300BBD933 /* AUSimplePlayer.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AUSimplePlayer.m; sourceTree = "<group>"; };
+		30E3B3E5191FDEBB008B2BF8 /* KKEQListViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KKEQListViewController.h; sourceTree = "<group>"; };
+		30E3B3E6191FDEBB008B2BF8 /* KKEQListViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KKEQListViewController.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -123,6 +126,8 @@
 				30358286191CAEFB00BBD933 /* Main_iPad.storyboard */,
 				30358289191CAEFB00BBD933 /* KKViewController.h */,
 				3035828A191CAEFB00BBD933 /* KKViewController.m */,
+				30E3B3E5191FDEBB008B2BF8 /* KKEQListViewController.h */,
+				30E3B3E6191FDEBB008B2BF8 /* KKEQListViewController.m */,
 				3035828C191CAEFB00BBD933 /* Images.xcassets */,
 				30358278191CAEFB00BBD933 /* Supporting Files */,
 				303582A9191CB08300BBD933 /* AUSimplePlayer.h */,
@@ -260,6 +265,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				303582AB191CB08300BBD933 /* AUSimplePlayer.m in Sources */,
+				30E3B3E7191FDEBB008B2BF8 /* KKEQListViewController.m in Sources */,
 				3035828B191CAEFB00BBD933 /* KKViewController.m in Sources */,
 				30358282191CAEFB00BBD933 /* KKAppDelegate.m in Sources */,
 				3035827E191CAEFB00BBD933 /* main.m in Sources */,
@@ -477,6 +483,7 @@
 				303582A5191CAEFB00BBD933 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		303582A6191CAEFB00BBD933 /* Build configuration list for PBXNativeTarget "AUSimplePlayerTests" */ = {
 			isa = XCConfigurationList;
@@ -485,6 +492,7 @@
 				303582A8191CAEFB00BBD933 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

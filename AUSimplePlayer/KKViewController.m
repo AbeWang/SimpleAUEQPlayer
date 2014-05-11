@@ -6,6 +6,7 @@
 //
 
 #import "KKViewController.h"
+#import "KKEQListViewController.h"
 #import "AUSimplePlayer.h"
 
 @implementation KKViewController
@@ -24,6 +25,15 @@
 		return;
 	}
 	[[AUSimplePlayer sharedPlayer] playLocalFile:[NSURL fileURLWithPath:@"/Users/abe/Documents/test.mp3"]];
+}
+
+- (IBAction)showEQList:(id)sender
+{
+    if ([AUSimplePlayer sharedPlayer].isPlaying) {
+        KKEQListViewController *EQListViewController = [[KKEQListViewController alloc] initWithStyle:UITableViewStylePlain];
+        UINavigationController *naviController = [[UINavigationController alloc] initWithRootViewController:EQListViewController];
+        [self presentViewController:naviController animated:YES completion:nil];
+    }
 }
 
 - (IBAction)play:(id)sender

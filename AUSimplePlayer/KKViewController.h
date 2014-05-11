@@ -15,5 +15,6 @@
 }
 
 - (IBAction)playSong:(id)sender;
+- (IBAction)showEQList:(id)sender;
 
 @end
