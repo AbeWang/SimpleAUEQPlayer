@@ -36,9 +36,9 @@
     }
 }
 
-- (IBAction)play:(id)sender
+- (IBAction)resume:(id)sender
 {
-	[[AUSimplePlayer sharedPlayer] play];
+	[[AUSimplePlayer sharedPlayer] resume];
 }
 
 - (IBAction)pause:(id)sender

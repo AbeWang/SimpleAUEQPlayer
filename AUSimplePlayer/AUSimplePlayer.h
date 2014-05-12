@@ -22,7 +22,7 @@
 
 - (void)playLocalFile:(NSURL *)fileURL;
 
-- (void)play;
+- (void)resume;
 - (void)pause;
 - (void)stop;
 

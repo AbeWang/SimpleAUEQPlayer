@@ -84,7 +84,7 @@
 	[_delegate simplePlayerDidStartPlaying:self];
 }
 
-- (void)play
+- (void)resume
 {
 }
 
@@ -94,11 +94,10 @@
 
 - (void)stop
 {
-	// Cleanup
-//	AUGraphStop(graph);
-//	AUGraphUninitialize(graph);
-//	AUGraphClose(graph);
-//	AudioFileClose(inputFile);
+	AUGraphStop(graph);
+	AUGraphUninitialize(graph);
+	AUGraphClose(graph);
+	AudioFileClose(inputFile);
 }
 
 - (BOOL)isPlaying
