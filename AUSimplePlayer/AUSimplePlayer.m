@@ -27,35 +27,20 @@
     AUPreset currentEQPreset;
 }
 
-- (void)dealloc
+- (void)playWithLocalFile:(NSURL *)inFileURL
 {
-    AUGraphStop(graph);
-    AUGraphUninitialize(graph);
-    AUGraphClose(graph);
-    AudioFileClose(inputFile);
-}
+	if ([self isPlaying]) {
+		return;
+	}
 
-+ (AUSimplePlayer *)sharedPlayer
-{
-	static AUSimplePlayer *simplePlayerInstance = nil;
-	static dispatch_once_t onceToken;
-	dispatch_once(&onceToken, ^{
-		simplePlayerInstance = [[AUSimplePlayer alloc] init];
-	});
-
-	return simplePlayerInstance;
-}
-
-- (void)playLocalFile:(NSURL *)fileURL
-{
-	if (![[fileURL path] length]) {
+	if (![[inFileURL path] length]) {
 		return;
 	}
 
     OSStatus status;
-    
+
 	// Open the input local audio file
-	status = AudioFileOpenURL((__bridge CFURLRef)fileURL, kAudioFileReadPermission, 0, &inputFile);
+	status = AudioFileOpenURL((__bridge CFURLRef)inFileURL, kAudioFileReadPermission, 0, &inputFile);
     NSAssert(status == noErr, @"Audio file open error. status:%d", (int)status);
 
 	// Get the audio data format from the file
@@ -68,19 +53,18 @@
 
 	// Configure the file player
 	[self configureFilePlayerNode];
-    
+
     // Get EQ Presets Array
     UInt32 size = sizeof(EQPresetsArray);
     status = AudioUnitGetProperty(EQAU, kAudioUnitProperty_FactoryPresets, kAudioUnitScope_Global, 0, &EQPresetsArray, &size);
     NSAssert(status == noErr, @"Get EQ Presets Array error. status:%d", (int)status);
-    
+
     // Reset EQ
     [self setEQPreset:0];
 
 	// Starting playing
 	status = AUGraphStart(graph);
-    NSAssert(status == noErr, @"AUGraph start error. status:%d", (int)status);
-
+	NSAssert(status == noErr, @"AUGraph start error. status:%d", (int)status);
 	[_delegate simplePlayerDidStartPlaying:self];
 }
 

@@ -16,21 +16,24 @@
 	[super loadView];
 
 	songLengthLabel.text = @"";
-	[AUSimplePlayer sharedPlayer].delegate = self;
+	player = [[AUSimplePlayer alloc] init];
+	player.delegate = self;
 }
 
 - (IBAction)playSong:(id)sender
 {
-	if ([[AUSimplePlayer sharedPlayer] isPlaying]) {
+	if (player.isPlaying) {
 		return;
 	}
-	[[AUSimplePlayer sharedPlayer] playLocalFile:[NSURL fileURLWithPath:@"/Users/abe/Documents/test.mp3"]];
+
+	[player playWithLocalFile:[NSURL fileURLWithPath:@"/Users/abe/Documents/test.mp3"]];
 }
 
 - (IBAction)showEQList:(id)sender
 {
-    if ([AUSimplePlayer sharedPlayer].isPlaying) {
+    if (player.isPlaying) {
         KKEQListViewController *EQListViewController = [[KKEQListViewController alloc] initWithStyle:UITableViewStylePlain];
+		EQListViewController.playerController = self;
         UINavigationController *naviController = [[UINavigationController alloc] initWithRootViewController:EQListViewController];
         [self presentViewController:naviController animated:YES completion:nil];
     }
@@ -38,18 +41,20 @@
 
 - (IBAction)resume:(id)sender
 {
-	[[AUSimplePlayer sharedPlayer] resume];
+	[player resume];
 }
 
 - (IBAction)pause:(id)sender
 {
-	[[AUSimplePlayer sharedPlayer] pause];
+	[player pause];
 }
 
 - (IBAction)stop:(id)sender
 {
-	[[AUSimplePlayer sharedPlayer] stop];
+	[player stop];
 }
+
+@synthesize player;
 
 #pragma mark AUSimplePlayer Delegates
 

@@ -5,6 +5,12 @@
 //  Created by Abe on 2014/5/12.
 //
 
-@interface KKEQListViewController : UITableViewController
+#import "KKViewController.h"
 
+@interface KKEQListViewController : UITableViewController
+{
+	__weak KKViewController *playerController;
+}
+
+@property (weak, nonatomic) KKViewController *playerController;
 @end

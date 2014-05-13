@@ -12,9 +12,13 @@
 {
 	IBOutlet UIButton *playButton;
 	IBOutlet UILabel *songLengthLabel;
+
+	AUSimplePlayer *player;
 }
 
 - (IBAction)playSong:(id)sender;
 - (IBAction)showEQList:(id)sender;
+
+@property (readonly, nonatomic) AUSimplePlayer *player;
 
 @end

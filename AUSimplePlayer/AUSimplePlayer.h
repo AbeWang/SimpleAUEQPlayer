@@ -18,9 +18,7 @@
 
 @interface AUSimplePlayer : NSObject
 
-+ (AUSimplePlayer *)sharedPlayer;
-
-- (void)playLocalFile:(NSURL *)fileURL;
+- (void)playWithLocalFile:(NSURL *)inFileURL;
 
 - (void)resume;
 - (void)pause;

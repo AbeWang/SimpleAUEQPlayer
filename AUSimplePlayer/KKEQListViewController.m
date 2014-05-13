@@ -33,7 +33,7 @@
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
 {
-    return [(NSArray *)[[AUSimplePlayer sharedPlayer] EQPresetsArray] count];
+    return [(NSArray *)[[playerController player] EQPresetsArray] count];
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
@@ -44,17 +44,18 @@
         cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:CellIdentifier];
     }
     
-    AUPreset *aPreset = (AUPreset *)CFArrayGetValueAtIndex([[AUSimplePlayer sharedPlayer] EQPresetsArray], indexPath.row);
+    AUPreset *aPreset = (AUPreset *)CFArrayGetValueAtIndex([[playerController player] EQPresetsArray], indexPath.row);
     cell.textLabel.text = (__bridge NSString *)aPreset->presetName;
-    NSString *currentEQPreset = (__bridge NSString *)[[AUSimplePlayer sharedPlayer] currentEQPreset].presetName;
+    NSString *currentEQPreset = (__bridge NSString *)[[playerController player] currentEQPreset].presetName;
     cell.accessoryType = ([cell.textLabel.text isEqualToString:currentEQPreset]) ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
     return cell;
 }
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
 {
-    [[AUSimplePlayer sharedPlayer] setEQPreset:indexPath.row];
+    [[playerController player] setEQPreset:indexPath.row];
     [self close:nil];
 }
 
+@synthesize playerController;
 @end
