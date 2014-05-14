@@ -18,7 +18,8 @@
 
 @interface AUSimplePlayer : NSObject
 
-- (void)playWithLocalFile:(NSURL *)inFileURL;
+- (void)playWithLocalFileURL:(NSURL *)inFileURL;
+- (void)playWithStreamingAudioURL:(NSURL *)inAudioURL;
 
 - (void)resume;
 - (void)pause;

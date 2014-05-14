@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		30329EB6192269470066BB63 /* AudioToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 30329EB5192269470066BB63 /* AudioToolbox.framework */; };
 		30358272191CAEFB00BBD933 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 30358271191CAEFB00BBD933 /* Foundation.framework */; };
 		30358274191CAEFB00BBD933 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 30358273191CAEFB00BBD933 /* CoreGraphics.framework */; };
 		30358276191CAEFB00BBD933 /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 30358275191CAEFB00BBD933 /* UIKit.framework */; };
@@ -37,6 +38,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		30329EB5192269470066BB63 /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
 		3035826E191CAEFB00BBD933 /* AUSimplePlayer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AUSimplePlayer.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		30358271191CAEFB00BBD933 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		30358273191CAEFB00BBD933 /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
@@ -68,6 +70,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				30329EB6192269470066BB63 /* AudioToolbox.framework in Frameworks */,
 				30358274191CAEFB00BBD933 /* CoreGraphics.framework in Frameworks */,
 				30358276191CAEFB00BBD933 /* UIKit.framework in Frameworks */,
 				30358272191CAEFB00BBD933 /* Foundation.framework in Frameworks */,
@@ -109,6 +112,7 @@
 		30358270191CAEFB00BBD933 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				30329EB5192269470066BB63 /* AudioToolbox.framework */,
 				30358271191CAEFB00BBD933 /* Foundation.framework */,
 				30358273191CAEFB00BBD933 /* CoreGraphics.framework */,
 				30358275191CAEFB00BBD933 /* UIKit.framework */,

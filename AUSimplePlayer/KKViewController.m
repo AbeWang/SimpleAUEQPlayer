@@ -16,6 +16,7 @@
 	[super loadView];
 
 	songLengthLabel.text = @"";
+
 	player = [[AUSimplePlayer alloc] init];
 	player.delegate = self;
 }
@@ -26,7 +27,8 @@
 		return;
 	}
 
-	[player playWithLocalFile:[NSURL fileURLWithPath:@"/Users/abe/Documents/test.mp3"]];
+//	[player playWithLocalFileURL:[NSURL fileURLWithPath:@"/Users/abe/Documents/test.mp3"]];
+	[player playWithStreamingAudioURL:[NSURL URLWithString:@"http://zonble.net/MIDI/orz.mp3"]];
 }
 
 - (IBAction)showEQList:(id)sender
