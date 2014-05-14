@@ -28,7 +28,7 @@
 	}
 
 //	[player playWithLocalFileURL:[NSURL fileURLWithPath:@"/Users/abe/Documents/test.mp3"]];
-	[player playWithStreamingAudioURL:[NSURL URLWithString:@"http://zonble.net/MIDI/orz.mp3"]];
+	[player playWithStreamingAudioURL:[NSURL URLWithString:@"http://abe.myftp.org/long_mix.mp3"]];
 }
 
 - (IBAction)showEQList:(id)sender
@@ -65,6 +65,10 @@
 	NSLog(@"%s", __PRETTY_FUNCTION__);
 }
 - (void)simplePlayerDidPausePlaying:(AUSimplePlayer *)inPlayer
+{
+	NSLog(@"%s", __PRETTY_FUNCTION__);
+}
+- (void)simplePlayerDidResumePlaying:(AUSimplePlayer *)inPlayer
 {
 	NSLog(@"%s", __PRETTY_FUNCTION__);
 }

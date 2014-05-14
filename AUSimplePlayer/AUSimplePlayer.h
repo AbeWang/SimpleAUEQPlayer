@@ -12,6 +12,7 @@
 @protocol AUSimplePlayerDelegate <NSObject>
 - (void)simplePlayerDidStartPlaying:(AUSimplePlayer *)inPlayer;
 - (void)simplePlayerDidPausePlaying:(AUSimplePlayer *)inPlayer;
+- (void)simplePlayerDidResumePlaying:(AUSimplePlayer *)inPlayer;
 - (void)simplePlayerDidStopPlaying:(AUSimplePlayer *)inPlayer;
 - (void)simplePlayer:(AUSimplePlayer *)inPlayer updateSongLength:(NSTimeInterval)inLength;
 @end
@@ -21,8 +22,8 @@
 - (void)playWithLocalFileURL:(NSURL *)inFileURL;
 - (void)playWithStreamingAudioURL:(NSURL *)inAudioURL;
 
-- (void)resume;
 - (void)pause;
+- (void)resume;
 - (void)stop;
 
 - (BOOL)isPlaying;

@@ -7,22 +7,21 @@
 
 #import "AUSimplePlayer.h"
 
+#pragma mark - Callback Functions
+
 void AudioFileStreamPropertyListenerCallback(void * inClientData, AudioFileStreamID inAudioFileStream, AudioFileStreamPropertyID inPropertyID, UInt32 * ioFlags);
+
 void AudioFileStreamPacketsCallback(void *inClientData, UInt32 inNumberBytes, UInt32 inNumberPackets, const void * inInputData, AudioStreamPacketDescription *inPacketDescriptions);
 
 OSStatus PlaybackCallback(void *userData, AudioUnitRenderActionFlags *ioActionFlags, const AudioTimeStamp *inTimeStamp, UInt32 inBusNumber, UInt32 inNumberFrames, AudioBufferList *ioData);
 
 OSStatus AudioConverterFiller(AudioConverterRef inAudioConverter, UInt32* ioNumberDataPackets, AudioBufferList* ioData, AudioStreamPacketDescription** outDataPacketDescription, void* inUserData);
 
-typedef struct {
-	size_t length;
-	void *data;
-} AUPacketData;
+#pragma mark - LinearPCMStreamDescription
 
 AudioStreamBasicDescription PCMStreamDescription()
 {
-	AudioStreamBasicDescription format;
-	bzero(&format, sizeof(AudioStreamBasicDescription));
+	AudioStreamBasicDescription format = {0};
 	format.mSampleRate = 44100.0;
 	format.mFormatID = kAudioFormatLinearPCM;
 	format.mFormatFlags = kLinearPCMFormatFlagIsSignedInteger;
@@ -34,21 +33,44 @@ AudioStreamBasicDescription PCMStreamDescription()
 	return format;
 }
 
+#pragma mark - AUSimplePlayer (StreamingAudio)
+
+@interface AUSimplePlayer (StreamingAudio)
+- (void)createAUGraph;
+- (double)framePerSecond;
+- (OSStatus)_enqueueDataWithPacketsCount:(UInt32)inPacketCount ioData:(AudioBufferList *)ioData;
+- (void)_storePacketsWithNumberOfBytes:(UInt32)inNumberBytes numberOfPackets:(UInt32)inNumberPackets inputData:(const void *)inInputData packetDescriptions:(AudioStreamPacketDescription *)inPacketDescriptions;
+- (void)_createAudioConverterWithAudioStreamDescription:(AudioStreamBasicDescription *)audioStreamBasicDescription;
+- (OSStatus)_fillConverterBufferWithBufferlist:(AudioBufferList *)ioData packetDescription:(AudioStreamPacketDescription** )outDataPacketDescription;
+@end
+
+#pragma mark - AUSimplePlayer (LocalAudio)
+
 @interface AUSimplePlayer (LocalAudio)
 - (void)createAUGraphForLocalAudio;
 - (void)configureFilePlayerNode;
 @end
 
+#pragma mark - AUSimplePlayer
+
+typedef struct {
+	size_t length;
+	void *data;
+} AUPacketData;
+
 @implementation AUSimplePlayer
 {
-	AudioStreamBasicDescription inputFormat;
+    AudioStreamBasicDescription streamDescription;
+
 	AudioFileID inputFile;
+    AudioFileStreamID audioFileStreamID;
+    
 	AUGraph graph;
 
 	AudioUnit inputAU;
 	AudioUnit outputAU;
-    AudioUnit EQAU;
     AudioUnit converterAU;
+    AudioUnit EQAU;
     
     CFArrayRef EQPresetsArray;
     AUPreset currentEQPreset;
@@ -64,12 +86,22 @@ AudioStreamBasicDescription PCMStreamDescription()
 	AudioBufferList *list;
 	size_t renderBufferSize;
     
-    AudioFileStreamID audioFileStreamID;
     AudioConverterRef converter;
-    AudioStreamBasicDescription streamDescription;
 }
 
-#pragma mark - Play audio
+- (void)dealloc
+{
+    AudioFileClose(inputFile);
+    AudioFileStreamClose(audioFileStreamID);
+    
+    AUGraphStop(graph);
+	AUGraphUninitialize(graph);
+	AUGraphClose(graph);
+    
+    CFRelease(EQPresetsArray);
+    
+    AudioConverterReset(converter);
+}
 
 - (void)playWithLocalFileURL:(NSURL *)inFileURL
 {
@@ -88,8 +120,8 @@ AudioStreamBasicDescription PCMStreamDescription()
     NSAssert(status == noErr, @"Audio file open error. status:%d", (int)status);
 
 	// Get the audio data format from the file
-	UInt32 propSize = sizeof(inputFormat);
-	status = AudioFileGetProperty(inputFile, kAudioFilePropertyDataFormat, &propSize, &inputFormat);
+	UInt32 propSize = sizeof(streamDescription);
+	status = AudioFileGetProperty(inputFile, kAudioFilePropertyDataFormat, &propSize, &streamDescription);
     NSAssert(status == noErr, @"Get audio file data format error. status:%d", (int)status);
 
 	// Build a basic file player->speaker graph
@@ -130,8 +162,18 @@ AudioStreamBasicDescription PCMStreamDescription()
 	list->mBuffers[0].mData = calloc(1, packetSize);
 
 	[self createAUGraph];
+    
+    OSStatus status;
+    
+    // Get EQ Presets Array
+    UInt32 size = sizeof(EQPresetsArray);
+    status = AudioUnitGetProperty(EQAU, kAudioUnitProperty_FactoryPresets, kAudioUnitScope_Global, 0, &EQPresetsArray, &size);
+    NSAssert(status == noErr, @"Get EQ Presets Array error. status:%d", (int)status);
+    
+    // Reset EQ
+    [self setEQPreset:0];
 
-    OSStatus status = AudioFileStreamOpen((__bridge void *)(self), AudioFileStreamPropertyListenerCallback, AudioFileStreamPacketsCallback, kAudioFileMP3Type, &audioFileStreamID);
+    status = AudioFileStreamOpen((__bridge void *)(self), AudioFileStreamPropertyListenerCallback, AudioFileStreamPacketsCallback, kAudioFileMP3Type, &audioFileStreamID);
     NSAssert(status == noErr, @"AudioFileStream open error. status:%d", (int)status);
     
     URLConnection = [[NSURLConnection alloc] initWithRequest:[NSURLRequest requestWithURL:inAudioURL] delegate:self];
@@ -141,6 +183,7 @@ AudioStreamBasicDescription PCMStreamDescription()
 {
 	if (!self.isPlaying) {
 		AUGraphStart(graph);
+        [_delegate simplePlayerDidResumePlaying:self];
 	}
 }
 
@@ -148,6 +191,7 @@ AudioStreamBasicDescription PCMStreamDescription()
 {
 	if (self.isPlaying) {
 		AUGraphStop(graph);
+        [_delegate simplePlayerDidPausePlaying:self];
 	}
 }
 
@@ -157,6 +201,10 @@ AudioStreamBasicDescription PCMStreamDescription()
 	AUGraphUninitialize(graph);
 	AUGraphClose(graph);
 	AudioFileClose(inputFile);
+    AudioFileStreamClose(audioFileStreamID);
+    AudioConverterReset(converter);
+    
+    [_delegate simplePlayerDidStopPlaying:self];
 }
 
 - (BOOL)isPlaying
@@ -174,12 +222,42 @@ AudioStreamBasicDescription PCMStreamDescription()
 {
     AUPreset *aPreset = (AUPreset *)CFArrayGetValueAtIndex(EQPresetsArray, inValue);
 	OSStatus status = AudioUnitSetProperty(EQAU, kAudioUnitProperty_PresentPreset, kAudioUnitScope_Global, 0, aPreset, sizeof(AUPreset));
-    NSAssert(status == noErr, @"selectEQPreset error. status:%d", (int)status);
+    NSAssert(status == noErr, @"setEQPreset error. status:%d", (int)status);
     
     currentEQPreset = *aPreset;
 }
 
-#pragma mark - 
+#pragma mark - NSURLConnection delegates
+
+- (void)connection:(NSURLConnection *)connection didReceiveResponse:(NSURLResponse *)response
+{
+	if ([response isKindOfClass:[NSHTTPURLResponse class]]) {
+		if ([(NSHTTPURLResponse *)response statusCode] != 200) {
+			[connection cancel];
+		}
+	}
+}
+
+- (void)connection:(NSURLConnection *)connection didReceiveData:(NSData *)data
+{
+    AudioFileStreamParseBytes(audioFileStreamID, (UInt32)[data length], [data bytes], 0);
+}
+
+- (void)connectionDidFinishLoading:(NSURLConnection *)connection
+{
+}
+
+- (void)connection:(NSURLConnection *)connection didFailWithError:(NSError *)error
+{
+}
+
+@synthesize currentEQPreset;
+@synthesize EQPresetsArray;
+@end
+
+#pragma mark - AUSimplePlayer (StreamingAudio)
+
+@implementation AUSimplePlayer (StreamingAudio)
 
 - (void)createAUGraph
 {
@@ -195,21 +273,46 @@ AudioStreamBasicDescription PCMStreamDescription()
 	outputDescription.componentManufacturer = kAudioUnitManufacturer_Apple;
 	status = AUGraphAddNode(graph, &outputDescription, &outputNode);
 	NSAssert(status == noErr, @"Add output node error. status:%d", (int)status);
+    
+    AUNode EQNode;
+    AudioComponentDescription effectEQDescription = {0};
+    effectEQDescription.componentType = kAudioUnitType_Effect;
+    effectEQDescription.componentSubType = kAudioUnitSubType_AUiPodEQ;
+    effectEQDescription.componentManufacturer = kAudioUnitManufacturer_Apple;
+    status = AUGraphAddNode(graph, &effectEQDescription, &EQNode);
+    NSAssert(status == noErr, @"AUGraph add EQ node error. status:%d", (int)status);
+    
+    AUNode converterNode;
+    AudioComponentDescription converterDescription = {0};
+    converterDescription.componentType = kAudioUnitType_FormatConverter;
+    converterDescription.componentSubType = kAudioUnitSubType_AUConverter;
+    converterDescription.componentManufacturer = kAudioUnitManufacturer_Apple;
+    status = AUGraphAddNode(graph, &converterDescription, &converterNode);
+    NSAssert(status == noErr, @"AUGraph add converter node error. status:%d", (int)status);
 
 	status = AUGraphOpen(graph);
 	NSAssert(status == noErr, @"AUGraph open error. status:%d", (int)status);
+    
+    status = AUGraphConnectNodeInput(graph, converterNode, 0, EQNode, 0);
+    NSAssert(status == noErr, @"AUGraph connect node error. status:%d", (int)status);
+    status = AUGraphConnectNodeInput(graph, EQNode, 0, outputNode, 0);
+    NSAssert(status == noErr, @"AUGraph connect node error. status:%d", (int)status);
 
 	status = AUGraphNodeInfo(graph, outputNode, &outputDescription, &outputAU);
 	NSAssert(status == noErr, @"Get output node error. status:%d", (int)status);
+    status = AUGraphNodeInfo(graph, EQNode, &effectEQDescription, &EQAU);
+	NSAssert(status == noErr, @"Get output node error. status:%d", (int)status);
+    status = AUGraphNodeInfo(graph, converterNode, &converterDescription, &converterAU);
+	NSAssert(status == noErr, @"Get output node error. status:%d", (int)status);
 
 	AudioStreamBasicDescription format = PCMStreamDescription();
-	status = AudioUnitSetProperty(outputAU, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input, 0, &format, sizeof(format));
+	status = AudioUnitSetProperty(converterAU, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input, 0, &format, sizeof(format));
 	NSAssert(status == noErr, @"Set stream format error. status:%d", (int)status);
 
 	AURenderCallbackStruct inputCallbackStruct;
 	inputCallbackStruct.inputProc = PlaybackCallback;
 	inputCallbackStruct.inputProcRefCon = (__bridge void *)(self);
-	status = AudioUnitSetProperty(outputAU, kAudioUnitProperty_SetRenderCallback, kAudioUnitScope_Input, 0, &inputCallbackStruct, sizeof(inputCallbackStruct));
+	status = AudioUnitSetProperty(converterAU, kAudioUnitProperty_SetRenderCallback, kAudioUnitScope_Input, 0, &inputCallbackStruct, sizeof(inputCallbackStruct));
 	NSAssert(status == noErr, @"Set RenderCallback error. status:%d", (int)status);
 
 	status = AUGraphInitialize(graph);
@@ -239,7 +342,6 @@ AudioStreamBasicDescription PCMStreamDescription()
 				ioData->mBuffers[0].mDataByteSize = self->list->mBuffers[0].mDataByteSize;
 				list->mBuffers[0].mDataByteSize = (UInt32)renderBufferSize;
 				status = noErr;
-				NSLog(@"enqueue audio data...");
 			}
         }
     }
@@ -263,7 +365,7 @@ AudioStreamBasicDescription PCMStreamDescription()
 			AudioConverterReset(converter);
 			OSStatus status = AUGraphStart(graph);
 			NSAssert(status == noErr, @"AUGraph Start error. status:%d", (int)status);
-			NSLog(@"--------AUGraphStart--------");
+            [_delegate simplePlayerDidStartPlaying:self];
 		}
     }
 }
@@ -304,33 +406,9 @@ AudioStreamBasicDescription PCMStreamDescription()
     return 44100.0 / 1152.0;
 }
 
-#pragma mark - NSURLConnection delegates
-
-- (void)connection:(NSURLConnection *)connection didReceiveResponse:(NSURLResponse *)response
-{
-	if ([response isKindOfClass:[NSHTTPURLResponse class]]) {
-		if ([(NSHTTPURLResponse *)response statusCode] != 200) {
-			[connection cancel];
-		}
-	}
-}
-
-- (void)connection:(NSURLConnection *)connection didReceiveData:(NSData *)data
-{
-    AudioFileStreamParseBytes(audioFileStreamID, (UInt32)[data length], [data bytes], 0);
-}
-
-- (void)connectionDidFinishLoading:(NSURLConnection *)connection
-{
-}
-
-- (void)connection:(NSURLConnection *)connection didFailWithError:(NSError *)error
-{
-}
-
-@synthesize currentEQPreset;
-@synthesize EQPresetsArray;
 @end
+
+#pragma mark - AUSimplePlayer (LocalAudio)
 
 @implementation AUSimplePlayer (LocalAudio)
 
@@ -435,7 +513,7 @@ AudioStreamBasicDescription PCMStreamDescription()
 	region.mAudioFile = inputFile;
 	region.mLoopCount = 1;
 	region.mStartFrame = 0;
-	region.mFramesToPlay = (UInt32)(nPackets * inputFormat.mFramesPerPacket);
+	region.mFramesToPlay = (UInt32)(nPackets * streamDescription.mFramesPerPacket);
 	region.mCompletionProc = NULL;
 	status = AudioUnitSetProperty(inputAU, kAudioUnitProperty_ScheduledFileRegion, kAudioUnitScope_Global, 0, &region, sizeof(region));
     NSAssert(status == noErr, @"AU set ScheduledFileRegion error. status:%d", (int)status);
@@ -451,13 +529,13 @@ AudioStreamBasicDescription PCMStreamDescription()
 
 	// Calculating file playback time in seconds
 	// (total frames / sample frames per second) = total length
-	if ([_delegate respondsToSelector:@selector(simplePlayer:updateSongLength:)]) {
-		NSTimeInterval songLength = (nPackets * inputFormat.mFramesPerPacket) / inputFormat.mSampleRate;
-		[_delegate simplePlayer:self updateSongLength:songLength];
-	}
+    NSTimeInterval songLength = (nPackets * streamDescription.mFramesPerPacket) / streamDescription.mSampleRate;
+    [_delegate simplePlayer:self updateSongLength:songLength];
 }
 
 @end
+
+#pragma mark - Callback Functions
 
 OSStatus PlaybackCallback(void *userData, AudioUnitRenderActionFlags *ioActionFlags, const AudioTimeStamp *inTimeStamp, UInt32 inBusNumber, UInt32 inNumberFrames, AudioBufferList *ioData)
 {

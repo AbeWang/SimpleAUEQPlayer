@@ -1,0 +1,9 @@
+*.pbxuser
+*.mode1v3
+*.wdgtuser
+*.perspectivev3
+*.xcworkspace
+*.ipa
+*.swp
+xcuserdata
+.DS_Store
