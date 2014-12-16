@@ -9,13 +9,13 @@
 
 #pragma mark - Callback Functions
 
-void AudioFileStreamPropertyListenerCallback(void * inClientData, AudioFileStreamID inAudioFileStream, AudioFileStreamPropertyID inPropertyID, UInt32 * ioFlags);
+void AudioFileStreamPropertyListenerCallback(void *inClientData, AudioFileStreamID inAudioFileStream, AudioFileStreamPropertyID inPropertyID, UInt32 *ioFlags);
 
-void AudioFileStreamPacketsCallback(void *inClientData, UInt32 inNumberBytes, UInt32 inNumberPackets, const void * inInputData, AudioStreamPacketDescription *inPacketDescriptions);
+void AudioFileStreamPacketsCallback(void *inClientData, UInt32 inNumberBytes, UInt32 inNumberPackets, const void *inInputData, AudioStreamPacketDescription *inPacketDescriptions);
 
 OSStatus PlaybackCallback(void *userData, AudioUnitRenderActionFlags *ioActionFlags, const AudioTimeStamp *inTimeStamp, UInt32 inBusNumber, UInt32 inNumberFrames, AudioBufferList *ioData);
 
-OSStatus AudioConverterFiller(AudioConverterRef inAudioConverter, UInt32* ioNumberDataPackets, AudioBufferList* ioData, AudioStreamPacketDescription** outDataPacketDescription, void* inUserData);
+OSStatus AudioConverterFiller(AudioConverterRef inAudioConverter, UInt32 *ioNumberDataPackets, AudioBufferList *ioData, AudioStreamPacketDescription** outDataPacketDescription, void *inUserData);
 
 #pragma mark - LinearPCMStreamDescription
 
@@ -62,7 +62,7 @@ typedef struct {
 {
     AudioStreamBasicDescription streamDescription;
 
-	AudioFileID inputFile;
+	AudioFileID audioFileID;
     AudioFileStreamID audioFileStreamID;
     
 	AUGraph graph;
@@ -91,7 +91,7 @@ typedef struct {
 
 - (void)dealloc
 {
-    AudioFileClose(inputFile);
+    AudioFileClose(audioFileID);
     AudioFileStreamClose(audioFileStreamID);
     
     AUGraphStop(graph);
@@ -116,12 +116,12 @@ typedef struct {
     OSStatus status;
 
 	// Open the input local audio file
-	status = AudioFileOpenURL((__bridge CFURLRef)inFileURL, kAudioFileReadPermission, 0, &inputFile);
+	status = AudioFileOpenURL((__bridge CFURLRef)inFileURL, kAudioFileReadPermission, 0, &audioFileID);
     NSAssert(status == noErr, @"Audio file open error. status:%d", (int)status);
 
 	// Get the audio data format from the file
 	UInt32 propSize = sizeof(streamDescription);
-	status = AudioFileGetProperty(inputFile, kAudioFilePropertyDataFormat, &propSize, &streamDescription);
+	status = AudioFileGetProperty(audioFileID, kAudioFilePropertyDataFormat, &propSize, &streamDescription);
     NSAssert(status == noErr, @"Get audio file data format error. status:%d", (int)status);
 
 	// Build a basic file player->speaker graph
@@ -173,6 +173,7 @@ typedef struct {
     // Reset EQ
     [self setEQPreset:0];
 
+    // Create and open a new audio file stream parser
     status = AudioFileStreamOpen((__bridge void *)(self), AudioFileStreamPropertyListenerCallback, AudioFileStreamPacketsCallback, kAudioFileMP3Type, &audioFileStreamID);
     NSAssert(status == noErr, @"AudioFileStream open error. status:%d", (int)status);
     
@@ -200,7 +201,7 @@ typedef struct {
 	AUGraphStop(graph);
 	AUGraphUninitialize(graph);
 	AUGraphClose(graph);
-	AudioFileClose(inputFile);
+	AudioFileClose(audioFileID);
     AudioFileStreamClose(audioFileStreamID);
     AudioConverterReset(converter);
     
@@ -227,30 +228,6 @@ typedef struct {
     currentEQPreset = *aPreset;
 }
 
-#pragma mark - NSURLConnection delegates
-
-- (void)connection:(NSURLConnection *)connection didReceiveResponse:(NSURLResponse *)response
-{
-	if ([response isKindOfClass:[NSHTTPURLResponse class]]) {
-		if ([(NSHTTPURLResponse *)response statusCode] != 200) {
-			[connection cancel];
-		}
-	}
-}
-
-- (void)connection:(NSURLConnection *)connection didReceiveData:(NSData *)data
-{
-    AudioFileStreamParseBytes(audioFileStreamID, (UInt32)[data length], [data bytes], 0);
-}
-
-- (void)connectionDidFinishLoading:(NSURLConnection *)connection
-{
-}
-
-- (void)connection:(NSURLConnection *)connection didFailWithError:(NSError *)error
-{
-}
-
 @synthesize currentEQPreset;
 @synthesize EQPresetsArray;
 @end
@@ -261,11 +238,16 @@ typedef struct {
 
 - (void)createAUGraph
 {
+    // Callback -> Converter -> EQ -> Output
+    
+    
 	OSStatus status;
 
+    // New AUGraph
 	status = NewAUGraph(&graph);
 	NSAssert(status == noErr, @"New AUGraph error. status:%d", (int)status);
 
+    // Add Output AUNode
 	AUNode outputNode;
 	AudioComponentDescription outputDescription = {0};
 	outputDescription.componentType = kAudioUnitType_Output;
@@ -274,6 +256,7 @@ typedef struct {
 	status = AUGraphAddNode(graph, &outputDescription, &outputNode);
 	NSAssert(status == noErr, @"Add output node error. status:%d", (int)status);
     
+    // Add EQ AUNode
     AUNode EQNode;
     AudioComponentDescription effectEQDescription = {0};
     effectEQDescription.componentType = kAudioUnitType_Effect;
@@ -282,6 +265,7 @@ typedef struct {
     status = AUGraphAddNode(graph, &effectEQDescription, &EQNode);
     NSAssert(status == noErr, @"AUGraph add EQ node error. status:%d", (int)status);
     
+    // Add Converter AUNode
     AUNode converterNode;
     AudioComponentDescription converterDescription = {0};
     converterDescription.componentType = kAudioUnitType_FormatConverter;
@@ -290,14 +274,17 @@ typedef struct {
     status = AUGraphAddNode(graph, &converterDescription, &converterNode);
     NSAssert(status == noErr, @"AUGraph add converter node error. status:%d", (int)status);
 
+    // Open AUGraph
 	status = AUGraphOpen(graph);
 	NSAssert(status == noErr, @"AUGraph open error. status:%d", (int)status);
     
+    // Connect Nodes
     status = AUGraphConnectNodeInput(graph, converterNode, 0, EQNode, 0);
     NSAssert(status == noErr, @"AUGraph connect node error. status:%d", (int)status);
     status = AUGraphConnectNodeInput(graph, EQNode, 0, outputNode, 0);
     NSAssert(status == noErr, @"AUGraph connect node error. status:%d", (int)status);
 
+    // Get Audio Unit
 	status = AUGraphNodeInfo(graph, outputNode, &outputDescription, &outputAU);
 	NSAssert(status == noErr, @"Get output node error. status:%d", (int)status);
     status = AUGraphNodeInfo(graph, EQNode, &effectEQDescription, &EQAU);
@@ -305,16 +292,19 @@ typedef struct {
     status = AUGraphNodeInfo(graph, converterNode, &converterDescription, &converterAU);
 	NSAssert(status == noErr, @"Get output node error. status:%d", (int)status);
 
+    // Set stream format for coverter node
 	AudioStreamBasicDescription format = PCMStreamDescription();
 	status = AudioUnitSetProperty(converterAU, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input, 0, &format, sizeof(format));
 	NSAssert(status == noErr, @"Set stream format error. status:%d", (int)status);
 
+    // Set callback for converter node
 	AURenderCallbackStruct inputCallbackStruct;
 	inputCallbackStruct.inputProc = PlaybackCallback;
 	inputCallbackStruct.inputProcRefCon = (__bridge void *)(self);
 	status = AudioUnitSetProperty(converterAU, kAudioUnitProperty_SetRenderCallback, kAudioUnitScope_Input, 0, &inputCallbackStruct, sizeof(inputCallbackStruct));
 	NSAssert(status == noErr, @"Set RenderCallback error. status:%d", (int)status);
 
+    // Init graph
 	status = AUGraphInitialize(graph);
 	NSAssert(status == noErr, @"AUGraph initialize error. status:%d", (int)status);
 }
@@ -404,6 +394,33 @@ typedef struct {
         return streamDescription.mSampleRate / streamDescription.mFramesPerPacket;
     }
     return 44100.0 / 1152.0;
+}
+
+#pragma mark - NSURLConnection delegate
+
+- (void)connection:(NSURLConnection *)connection didReceiveResponse:(NSURLResponse *)response
+{
+    if ([response isKindOfClass:[NSHTTPURLResponse class]]) {
+        if ([(NSHTTPURLResponse *)response statusCode] != 200) {
+            [connection cancel];
+        }
+    }
+}
+
+- (void)connection:(NSURLConnection *)connection didReceiveData:(NSData *)data
+{
+    // Passes audio file stream data to the parser
+    AudioFileStreamParseBytes(audioFileStreamID, (UInt32)[data length], [data bytes], 0);
+}
+
+- (void)connectionDidFinishLoading:(NSURLConnection *)connection
+{
+    NSLog(@"%s", __PRETTY_FUNCTION__);
+}
+
+- (void)connection:(NSURLConnection *)connection didFailWithError:(NSError *)error
+{
+    NSLog(@"%s", __PRETTY_FUNCTION__);
 }
 
 @end
@@ -501,16 +518,16 @@ typedef struct {
     
 	// Scheduling an audio file (AudioFileID) with the AUFilePlayer (input node)
 	// Tell the file player (input node) to load the audio file we want to play
-	status = AudioUnitSetProperty(inputAU, kAudioUnitProperty_ScheduledFileIDs, kAudioUnitScope_Global, 0, &inputFile, sizeof(inputFile));
+	status = AudioUnitSetProperty(inputAU, kAudioUnitProperty_ScheduledFileIDs, kAudioUnitScope_Global, 0, &audioFileID, sizeof(audioFileID));
     NSAssert(status == noErr, @"AU set ScheduledFileIDs error. status:%d", (int)status);
 
 	// Setting a ScheduledAudioFileRegion for the AUFilePlayer
 	UInt64 nPackets;
 	UInt32 propsize = sizeof(nPackets);
-	AudioFileGetProperty(inputFile, kAudioFilePropertyAudioDataPacketCount, &propsize, &nPackets);
+	AudioFileGetProperty(audioFileID, kAudioFilePropertyAudioDataPacketCount, &propsize, &nPackets);
 	// Tell the file player to play the entire file
 	ScheduledAudioFileRegion region;
-	region.mAudioFile = inputFile;
+	region.mAudioFile = audioFileID;
 	region.mLoopCount = 1;
 	region.mStartFrame = 0;
 	region.mFramesToPlay = (UInt32)(nPackets * streamDescription.mFramesPerPacket);
@@ -543,7 +560,7 @@ OSStatus PlaybackCallback(void *userData, AudioUnitRenderActionFlags *ioActionFl
     return [self _enqueueDataWithPacketsCount:inNumberFrames ioData:ioData];
 }
 
-void AudioFileStreamPropertyListenerCallback(void * inClientData, AudioFileStreamID inAudioFileStream, AudioFileStreamPropertyID inPropertyID, UInt32 * ioFlags)
+void AudioFileStreamPropertyListenerCallback(void *inClientData, AudioFileStreamID inAudioFileStream, AudioFileStreamPropertyID inPropertyID, UInt32 *ioFlags)
 {
     AUSimplePlayer *self = (__bridge AUSimplePlayer *)inClientData;
     
@@ -558,13 +575,13 @@ void AudioFileStreamPropertyListenerCallback(void * inClientData, AudioFileStrea
     }
 }
 
-void AudioFileStreamPacketsCallback(void * inClientData, UInt32 inNumberBytes, UInt32 inNumberPackets, const void * inInputData, AudioStreamPacketDescription *inPacketDescriptions)
+void AudioFileStreamPacketsCallback(void *inClientData, UInt32 inNumberBytes, UInt32 inNumberPackets, const void *inInputData, AudioStreamPacketDescription *inPacketDescriptions)
 {
     AUSimplePlayer *self = (__bridge AUSimplePlayer *)inClientData;
     [self _storePacketsWithNumberOfBytes:inNumberBytes numberOfPackets:inNumberPackets inputData:inInputData packetDescriptions:inPacketDescriptions];
 }
 
-OSStatus AudioConverterFiller(AudioConverterRef inAudioConverter, UInt32* ioNumberDataPackets, AudioBufferList* ioData, AudioStreamPacketDescription** outDataPacketDescription, void* inUserData)
+OSStatus AudioConverterFiller(AudioConverterRef inAudioConverter, UInt32 *ioNumberDataPackets, AudioBufferList *ioData, AudioStreamPacketDescription** outDataPacketDescription, void *inUserData)
 {
     AUSimplePlayer *self = (__bridge AUSimplePlayer *)inUserData;
 	*ioNumberDataPackets = 1;

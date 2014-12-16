@@ -22,11 +22,12 @@
 - (void)playWithLocalFileURL:(NSURL *)inFileURL;
 - (void)playWithStreamingAudioURL:(NSURL *)inAudioURL;
 
+- (BOOL)isPlaying;
+
 - (void)pause;
 - (void)resume;
 - (void)stop;
 
-- (BOOL)isPlaying;
 - (void)setEQPreset:(NSInteger)inValue;
 
 @property (weak, nonatomic) id<AUSimplePlayerDelegate> delegate;

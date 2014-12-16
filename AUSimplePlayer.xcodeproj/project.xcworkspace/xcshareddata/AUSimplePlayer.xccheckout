@@ -10,29 +10,29 @@
 	<string>AUSimplePlayer</string>
 	<key>IDESourceControlProjectOriginsDictionary</key>
 	<dict>
-		<key>870856FD-760C-4818-AC11-2B13CBBCF051</key>
-		<string>ssh://github.com/AbeWang/SimpleAUPlayer.git</string>
+		<key>D995804A1D1B443C05B23422670490934FA48E0F</key>
+		<string>github.com:AbeWang/SimpleAUPlayer.git</string>
 	</dict>
 	<key>IDESourceControlProjectPath</key>
-	<string>AUSimplePlayer.xcodeproj/project.xcworkspace</string>
+	<string>AUSimplePlayer.xcodeproj</string>
 	<key>IDESourceControlProjectRelativeInstallPathDictionary</key>
 	<dict>
-		<key>870856FD-760C-4818-AC11-2B13CBBCF051</key>
+		<key>D995804A1D1B443C05B23422670490934FA48E0F</key>
 		<string>../..</string>
 	</dict>
 	<key>IDESourceControlProjectURL</key>
-	<string>ssh://github.com/AbeWang/SimpleAUPlayer.git</string>
+	<string>github.com:AbeWang/SimpleAUPlayer.git</string>
 	<key>IDESourceControlProjectVersion</key>
-	<integer>110</integer>
+	<integer>111</integer>
 	<key>IDESourceControlProjectWCCIdentifier</key>
-	<string>870856FD-760C-4818-AC11-2B13CBBCF051</string>
+	<string>D995804A1D1B443C05B23422670490934FA48E0F</string>
 	<key>IDESourceControlProjectWCConfigurations</key>
 	<array>
 		<dict>
 			<key>IDESourceControlRepositoryExtensionIdentifierKey</key>
 			<string>public.vcs.git</string>
 			<key>IDESourceControlWCCIdentifierKey</key>
-			<string>870856FD-760C-4818-AC11-2B13CBBCF051</string>
+			<string>D995804A1D1B443C05B23422670490934FA48E0F</string>
 			<key>IDESourceControlWCCName</key>
 			<string>SimpleAUPlayer</string>
 		</dict>
